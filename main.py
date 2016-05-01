@@ -2,6 +2,7 @@ import logging
 import os
 import pprint
 import threading
+import time
 
 import twilio.twiml
 
@@ -23,7 +24,8 @@ TARGET_PHONE = '+17814433967'
 TWILIO_PHONE = '+14156049859'
  
 app = Flask(__name__)
-should_open = threading.Event()
+open_door_ts = 0.0
+open_cond = threading.Condition()
 
 @app.route("/incoming_text", methods=['GET', 'POST'])
 def incoming_text():
@@ -39,7 +41,9 @@ def incoming_text():
     elif body in ('y', 'Y', 'yes', 'Yes'):
         logging.info("Opening door for %s", who)
         resp.message("Opening door")
-        should_open.set()
+        with open_cond:
+            open_door_ts = time.time()
+            open_cond.notify()
     return str(resp)
     
 @app.route("/ring", methods=['GET'])
@@ -55,11 +59,12 @@ def ring():
     
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
-    should_open.wait(timeout=60)
-    if should_open.is_set():
-        should_open.clear()
-        return 'open'
-    return 'punt'
+    poll_end = time.time() + 60.0
+    with open_cond:
+        while open_door_ts + 10.0 <= time.time() and time.time() <= poll_end:
+            open_cond.wait(timeout=poll_end - time.time())
+
+        return 'open' if open_door_ts + 10.0 <= time.time() else 'punt'
  
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
