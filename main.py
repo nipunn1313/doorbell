@@ -30,13 +30,11 @@ def incoming_text():
     body = request.values.get('Body', '')
     
     logging.debug('Received message from %s:\n%s', who, body)
+    resp = twilio.twiml.Response()
     
     if who != TARGET_PHONE:
         logging.info("Text was from a rogue number %s. Ignoring.", who)
-        return
-    
-    resp = twilio.twiml.Response()
-    if body in ('y', 'Y', 'yes', 'Yes'):
+    elif body in ('y', 'Y', 'yes', 'Yes'):
         logging.info("Opening door for %s", who)
         resp.message("Opening door")
         should_open.set()
@@ -66,4 +64,4 @@ if __name__ == "__main__":
     port = int(os.getenv('PORT'))
     ip = os.getenv('IP', 'localhost')
     logging.info("Starting doorbell server on %s:%s", ip, port)
-    app.run(debug=True, host=ip, port=port, threaded=True)
+    app.run(debug=False, host=ip, port=port, threaded=True)
