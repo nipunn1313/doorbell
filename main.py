@@ -62,6 +62,6 @@ def longpoll_open():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     port = int(os.getenv('PORT'))
-    ip = os.getenv('IP', 'localhost')
+    ip = os.getenv('IP', '0.0.0.0')
     logging.info("Starting doorbell server on %s:%s", ip, port)
     app.run(debug=False, host=ip, port=port, threaded=True)
