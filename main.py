@@ -12,9 +12,11 @@ from flask import (
 )
 from twilio.rest import TwilioRestClient
 
-ACCOUNT_SID = 'ACbb2ca5675db388166ac0c01d790ad1e5'
-AUTH_TOKEN = '1fd4225630787789d968807a5edc53b6'
-client = TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN)
+client = TwilioRestClient(
+    account=os.getenv('TWILIO_API_SID'),
+    token=os.getenv('TWILIO_API_TOKEN'),
+    request_account=os.getenv('TWILIO_ACCOUNT_SID'),
+)
 
 TARGET_PHONE = '+17814433967'
 #TARGET_PHONE = '+14845540074'
