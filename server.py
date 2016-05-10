@@ -13,13 +13,13 @@ from flask import (
 )
 from twilio.rest import TwilioRestClient
 
-client = TwilioRestClient(
+twilio_client = TwilioRestClient(
     account=os.getenv('TWILIO_API_SID'),
     token=os.getenv('TWILIO_API_TOKEN'),
     request_account=os.getenv('TWILIO_ACCOUNT_SID'),
 )
 
-TARGET_PHONES = os.getenv('TARGET_PHONES').split(',')
+TARGET_PHONES = os.getenv('TARGET_PHONES', '').split(',')
 TWILIO_PHONE = os.getenv('TWILIO_PHONE')
 
 app = Flask(__name__)
@@ -69,7 +69,7 @@ def incoming_text():
 @app.route("/ring", methods=['GET'])
 def ring():
     logging.info("Someone rang the door")
-    message = client.messages.create(
+    message = twilio_client.messages.create(
         body='Someone rang the doorbell. Respond with "y" to open door',
         to=TARGET_PHONES[0],
         from_=TWILIO_PHONE,
@@ -79,7 +79,8 @@ def ring():
 
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
-    return door_opener.wait_until_open(timeout=60.0)
+    timeout = float(request.args.get('timeout', 60.0))
+    return door_opener.wait_until_open(timeout=timeout)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)

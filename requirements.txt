@@ -1,3 +1,5 @@
 flask
+mock
+pytest-flask
 requests
 twilio
