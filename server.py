@@ -32,18 +32,20 @@ class DoorOpener(object):
     def open(self):
         with self.open_cond:
             self.open_door_ts = time.time()
+            logging.info("Set open_door_ts=%s", self.open_door_ts)
             self.open_cond.notify()
 
+    def _should_open(self):
+        logging.info("At %s, open_door_ts=%s", time.time(), self.open_door_ts)
+        return self.open_door_ts <= time.time() <= self.open_door_ts + 10.0
+
     def wait_until_open(self, timeout):
-        window = 10.0
         poll_end = time.time() + timeout
         with self.open_cond:
-            while self.open_door_ts + window <= time.time() and time.time() <= poll_end:
-                logging.info("/longpoll_open: open_door_ts=%s poll_end=%s",
-                             self.open_door_ts, poll_end)
+            while not self._should_open() and time.time() <= poll_end:
                 self.open_cond.wait(timeout=poll_end - time.time())
 
-            return 'open' if self.open_door_ts + window <= time.time() else 'punt'
+            return 'open' if self._should_open() else 'punt'
 
 door_opener = DoorOpener()
 
@@ -77,7 +79,7 @@ def ring():
 
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
-    return door_opener.wait_until_open(timeout=10.0)
+    return door_opener.wait_until_open(timeout=60.0)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
