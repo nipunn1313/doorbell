@@ -19,9 +19,8 @@ client = TwilioRestClient(
     request_account=os.getenv('TWILIO_ACCOUNT_SID'),
 )
 
-TARGET_PHONE = '+17814433967'
-#TARGET_PHONE = '+14845540074'
-TWILIO_PHONE = '+14156049859'
+TARGET_PHONES = os.getenv('TARGET_PHONES').split(',')
+TWILIO_PHONE = os.getenv('TWILIO_PHONE')
 
 app = Flask(__name__)
 open_door_ts = 0.0
@@ -36,7 +35,7 @@ def incoming_text():
     logging.debug('Received message from %s:\n%s', who, body)
     resp = twilio.twiml.Response()
 
-    if who != TARGET_PHONE:
+    if who not in TARGET_PHONES:
         logging.info("Text was from a rogue number %s. Ignoring.", who)
     elif body in ('y', 'Y', 'yes', 'Yes'):
         logging.info("Opening door for %s", who)
@@ -51,7 +50,7 @@ def ring():
     logging.info("Someone rang the door")
     message = client.messages.create(
         body='Someone rang the doorbell. Respond with "y" to open door',
-        to=TARGET_PHONE,
+        to=TARGET_PHONES[0],
         from_=TWILIO_PHONE,
     )
     logging.info("Message(%s) sent. Status: %s", message.sid, message.status)
