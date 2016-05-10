@@ -23,8 +23,29 @@ TARGET_PHONES = os.getenv('TARGET_PHONES').split(',')
 TWILIO_PHONE = os.getenv('TWILIO_PHONE')
 
 app = Flask(__name__)
-open_door_ts = 0.0
-open_cond = threading.Condition()
+
+class DoorOpener(object):
+    def __init__(self):
+        self.open_door_ts = 0.0
+        self.open_cond = threading.Condition()
+
+    def open(self):
+        with self.open_cond:
+            self.open_door_ts = time.time()
+            self.open_cond.notify()
+
+    def wait_until_open(self, timeout):
+        window = 10.0
+        poll_end = time.time() + timeout
+        with self.open_cond:
+            while self.open_door_ts + window <= time.time() and time.time() <= poll_end:
+                logging.info("/longpoll_open: open_door_ts=%s poll_end=%s",
+                             self.open_door_ts, poll_end)
+                self.open_cond.wait(timeout=poll_end - time.time())
+
+            return 'open' if self.open_door_ts + window <= time.time() else 'punt'
+
+door_opener = DoorOpener()
 
 @app.route("/incoming_text", methods=['GET', 'POST'])
 def incoming_text():
@@ -40,9 +61,7 @@ def incoming_text():
     elif body in ('y', 'Y', 'yes', 'Yes'):
         logging.info("Opening door for %s", who)
         resp.message("Opening door")
-        with open_cond:
-            open_door_ts = time.time()
-            open_cond.notify()
+        door_opener.open()
     return str(resp)
 
 @app.route("/ring", methods=['GET'])
@@ -58,12 +77,7 @@ def ring():
 
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
-    poll_end = time.time() + 60.0
-    with open_cond:
-        while open_door_ts + 10.0 <= time.time() and time.time() <= poll_end:
-            open_cond.wait(timeout=poll_end - time.time())
-
-        return 'open' if open_door_ts + 10.0 <= time.time() else 'punt'
+    return door_opener.wait_until_open(timeout=10.0)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
