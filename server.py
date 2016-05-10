@@ -1,6 +1,5 @@
 import logging
 import os
-import pprint
 import threading
 import time
 
@@ -9,7 +8,6 @@ import twilio.twiml
 from flask import (
     Flask,
     request,
-    redirect,
 )
 from twilio.rest import TwilioRestClient
 
