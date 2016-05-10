@@ -22,7 +22,7 @@ client = TwilioRestClient(
 TARGET_PHONE = '+17814433967'
 #TARGET_PHONE = '+14845540074'
 TWILIO_PHONE = '+14156049859'
- 
+
 app = Flask(__name__)
 open_door_ts = 0.0
 open_cond = threading.Condition()
@@ -32,10 +32,10 @@ def incoming_text():
     """Handle incoming texts"""
     who = request.values.get('From')
     body = request.values.get('Body', '')
-    
+
     logging.debug('Received message from %s:\n%s', who, body)
     resp = twilio.twiml.Response()
-    
+
     if who != TARGET_PHONE:
         logging.info("Text was from a rogue number %s. Ignoring.", who)
     elif body in ('y', 'Y', 'yes', 'Yes'):
@@ -45,7 +45,7 @@ def incoming_text():
             open_door_ts = time.time()
             open_cond.notify()
     return str(resp)
-    
+
 @app.route("/ring", methods=['GET'])
 def ring():
     logging.info("Someone rang the door")
@@ -56,7 +56,7 @@ def ring():
     )
     logging.info("Message(%s) sent. Status: %s", message.sid, message.status)
     return 'ok'
-    
+
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
     poll_end = time.time() + 60.0
@@ -65,7 +65,7 @@ def longpoll_open():
             open_cond.wait(timeout=poll_end - time.time())
 
         return 'open' if open_door_ts + 10.0 <= time.time() else 'punt'
- 
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     port = int(os.getenv('PORT'))
