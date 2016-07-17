@@ -10,12 +10,12 @@ SERVER_URL = 'http://doorbell-to-2580.herokuapp.com'
 RING_URL = '%s/ring' % SERVER_URL
 POLL_URL = '%s/longpoll_open' % SERVER_URL
 
-PIN_IN = 2
+PIN_IN = 4
 PIN_OUT = 8
 
 def rpio_setup():
     GPIO.setmode(GPIO.BCM)
-    GPIO.setup(PIN_IN, GPIO.IN)
+    GPIO.setup(PIN_IN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.setup(PIN_OUT, GPIO.OUT, initial=0)
 
 def wait_for_ring():
