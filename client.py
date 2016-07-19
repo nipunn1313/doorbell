@@ -11,7 +11,7 @@ RING_URL = '%s/ring' % SERVER_URL
 POLL_URL = '%s/longpoll_open' % SERVER_URL
 
 PIN_IN = 4
-PIN_OUT = 8
+PIN_OUT = 24
 
 def rpio_setup():
     GPIO.setmode(GPIO.BCM)
