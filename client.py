@@ -2,6 +2,7 @@ from __future__ import (
     print_function,
 )
 
+import logging
 import requests
 import RPi.GPIO as GPIO
 import time
@@ -28,21 +29,25 @@ def open_door():
     GPIO.output(PIN_OUT, 0)
 
 def ring_door():
-    print("Ringing door")
+    logging.info("Ringing door")
     r = requests.get(RING_URL)
     r.raise_for_status()
 
 def should_open():
-    print("Waiting to open")
+    logging.info("Waiting to open")
     r = requests.get(POLL_URL)
     if r.text == 'open':
-        print("Opening door")
+        logging.info("Opening door")
         return True
     else:
-        print("Didn't get door-open-response:\n%s" % r.text)
+        logging.info("Didn't get door-open-response:\n%s" % r.text)
         return False
 
 def main():
+    FORMAT = '%(asctime)-15s %(message)s'
+    logging.basicConfig(level=logging.INFO, format=FORMAT)
+    logging.info("Starting up")
+
     rpio_setup()
 
     while True:
