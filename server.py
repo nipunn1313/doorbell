@@ -67,12 +67,13 @@ def incoming_text():
 @app.route("/ring", methods=['GET'])
 def ring():
     logging.info("Someone rang the door")
-    message = twilio_client.messages.create(
-        body='Someone rang the doorbell. Respond with "y" to open door',
-        to=TARGET_PHONES[0],
-        from_=TWILIO_PHONE,
-    )
-    logging.info("Message(%s) sent. Status: %s", message.sid, message.status)
+    for to in TARGET_PHONES:
+        message = twilio_client.messages.create(
+            body='Someone rang the doorbell. Respond with "y" to open door',
+            to=to,
+            from_=TWILIO_PHONE,
+        )
+        logging.info("Message(%s) sent to %s. Status: %s", message.sid, to, message.status)
     return 'ok'
 
 @app.route("/longpoll_open", methods=['GET'])
