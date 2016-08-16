@@ -47,10 +47,10 @@ class DoorOpener(object):
 
 door_opener = DoorOpener()
 
-def send_texts(message):
+def send_texts(text_message):
     for to in TARGET_PHONES:
         message = twilio_client.messages.create(
-            body='Someone rang the doorbell. Respond with "y" to open door',
+            body=text_message,
             to=to,
             from_=TWILIO_PHONE,
         )

@@ -23,6 +23,8 @@ def app(twilio_client):
 def test_ring(client, twilio_client, target_phones):
     assert client.get('/ring').status_code == 200
     assert twilio_client.messages.create.call_count == len(target_phones)
+    msg = 'Someone rang the doorbell. Respond with "y" to open door'
+    assert twilio_client.messages.create.call_args[1]['body'] == msg
 
 def test_longpoll(client, twilio_client, target_phones):
     assert client.get('/longpoll_open?timeout=1').data == 'punt'
@@ -31,3 +33,5 @@ def test_longpoll(client, twilio_client, target_phones):
     assert "Opening door" in r.data
     assert client.get('/longpoll_open?timeout=1').data == 'open'
     assert twilio_client.messages.create.call_count == len(target_phones)
+    msg = 'Door opened by %s' % target_phones[1]
+    assert twilio_client.messages.create.call_args[1]['body'] == msg
