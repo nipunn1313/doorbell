@@ -47,6 +47,17 @@ class DoorOpener(object):
 
 door_opener = DoorOpener()
 
+def send_texts(message):
+    for to in TARGET_PHONES:
+        message = twilio_client.messages.create(
+            body='Someone rang the doorbell. Respond with "y" to open door',
+            to=to,
+            from_=TWILIO_PHONE,
+        )
+        logging.info("Message(%s) sent to %s. Status: %s", message.sid, to, message.status)
+    logging.info("create: %s", twilio_client.messages.create)
+    logging.info("Callargslist: %s", twilio_client.messages.create.call_args_list)
+
 @app.route("/incoming_text", methods=['GET', 'POST'])
 def incoming_text():
     """Handle incoming texts"""
@@ -62,18 +73,13 @@ def incoming_text():
         logging.info("Opening door for %s", who)
         resp.message("Opening door")
         door_opener.open()
+        send_texts('Door opened by %s' % who)
     return str(resp)
 
 @app.route("/ring", methods=['GET'])
 def ring():
     logging.info("Someone rang the door")
-    for to in TARGET_PHONES:
-        message = twilio_client.messages.create(
-            body='Someone rang the doorbell. Respond with "y" to open door',
-            to=to,
-            from_=TWILIO_PHONE,
-        )
-        logging.info("Message(%s) sent to %s. Status: %s", message.sid, to, message.status)
+    send_texts('Someone rang the doorbell. Respond with "y" to open door')
     return 'ok'
 
 @app.route("/longpoll_open", methods=['GET'])
