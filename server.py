@@ -55,8 +55,6 @@ def send_texts(message):
             from_=TWILIO_PHONE,
         )
         logging.info("Message(%s) sent to %s. Status: %s", message.sid, to, message.status)
-    logging.info("create: %s", twilio_client.messages.create)
-    logging.info("Callargslist: %s", twilio_client.messages.create.call_args_list)
 
 @app.route("/incoming_text", methods=['GET', 'POST'])
 def incoming_text():
