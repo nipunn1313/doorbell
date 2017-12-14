@@ -30,7 +30,6 @@ def test_longpoll(client, twilio_client, target_phones):
     assert client.get('/longpoll_open?timeout=1').data == 'punt'
     r = client.post('/incoming_text', data=dict(From=target_phones[1], Body='y'))
     assert r.status_code == 200
-    assert "Opening door" in r.data
     assert client.get('/longpoll_open?timeout=1').data == 'open'
     assert twilio_client.messages.create.call_count == len(target_phones)
     msg = 'Door opened by %s' % target_phones[1]

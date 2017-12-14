@@ -68,10 +68,9 @@ def incoming_text():
     if who not in TARGET_PHONES:
         logging.info("Text was from a rogue number %s. Ignoring.", who)
     elif body in ('y', 'Y', 'yes', 'Yes'):
-        logging.info("Opening door for %s", who)
-        resp.message("Opening door")
+        logging.info('Door opened by %s', who)
+        resp.message('Door opened by %s' % who)
         door_opener.open()
-        send_texts('Door opened by %s' % who)
     return str(resp)
 
 @app.route("/ring", methods=['GET'])
