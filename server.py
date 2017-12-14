@@ -69,7 +69,7 @@ def incoming_text():
         logging.info("Text was from a rogue number %s. Ignoring.", who)
     elif body in ('y', 'Y', 'yes', 'Yes'):
         logging.info('Door opened by %s', who)
-        resp.message('Door opened by %s' % who)
+        send_texts('Door opened by %s' % who)
         door_opener.open()
     return str(resp)
 
