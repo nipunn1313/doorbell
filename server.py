@@ -22,7 +22,7 @@ TWILIO_PHONE = os.getenv('TWILIO_PHONE')
 
 app = Flask(__name__)
 
-class DoorOpener(object):
+class DoorManager(object):
     def __init__(self):
         self.open_door_ts = 0.0
         self.open_cond = threading.Condition()
@@ -45,7 +45,7 @@ class DoorOpener(object):
 
             return 'open' if self._should_open() else 'punt'
 
-door_opener = DoorOpener()
+door_manager = DoorManager()
 
 def send_texts(text_message):
     for to in TARGET_PHONES:
@@ -70,7 +70,7 @@ def incoming_text():
     elif body in ('y', 'Y', 'yes', 'Yes'):
         logging.info('Door opened by %s', who)
         send_texts('Door opened by %s' % who)
-        door_opener.open()
+        door_manager.open()
     return str(resp)
 
 @app.route("/ring", methods=['GET'])
@@ -82,7 +82,7 @@ def ring():
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
     timeout = float(request.args.get('timeout', 60.0))
-    return door_opener.wait_until_open(timeout=timeout)
+    return door_manager.wait_until_open(timeout=timeout)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
