@@ -22,10 +22,11 @@ TWILIO_PHONE = os.getenv('TWILIO_PHONE')
 
 app = Flask(__name__)
 
-class DoorOpener(object):
+class DoorManager(object):
     def __init__(self):
         self.open_door_ts = 0.0
         self.open_cond = threading.Condition()
+        self.locked = True
 
     def open(self):
         with self.open_cond:
@@ -33,9 +34,17 @@ class DoorOpener(object):
             logging.info("Set open_door_ts=%s", self.open_door_ts)
             self.open_cond.notify()
 
+    def unlock(self):
+        logging.info('Unlocking door.')
+        self.locked = False
+
+    def lock(self):
+        logging.info('Locking door.')
+        self.locked = True
+
     def _should_open(self):
         logging.info("At %s, open_door_ts=%s", time.time(), self.open_door_ts)
-        return self.open_door_ts <= time.time() <= self.open_door_ts + 10.0
+        return not self.locked and self.open_door_ts <= time.time() <= self.open_door_ts + 10.0
 
     def wait_until_open(self, timeout):
         poll_end = time.time() + timeout
@@ -45,7 +54,7 @@ class DoorOpener(object):
 
             return 'open' if self._should_open() else 'punt'
 
-door_opener = DoorOpener()
+door_manager = DoorManager()
 
 def send_texts(text_message):
     for to in TARGET_PHONES:
@@ -59,6 +68,8 @@ def send_texts(text_message):
 @app.route("/incoming_text", methods=['GET', 'POST'])
 def incoming_text():
     """Handle incoming texts"""
+    door_manager.unlock()
+
     who = request.values.get('From')
     body = request.values.get('Body', '')
 
@@ -70,7 +81,11 @@ def incoming_text():
     elif body in ('y', 'Y', 'yes', 'Yes'):
         logging.info('Door opened by %s', who)
         send_texts('Door opened by %s' % who)
-        door_opener.open()
+        door_manager.open()
+    elif body in ('n', 'N', 'no', 'No'):
+        logging.info('Door locked by %s', who)
+        send_texts('Door locked by %s' % who)
+        door_manager.lock()
     return str(resp)
 
 @app.route("/ring", methods=['GET'])
@@ -82,7 +97,7 @@ def ring():
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
     timeout = float(request.args.get('timeout', 60.0))
-    return door_opener.wait_until_open(timeout=timeout)
+    return door_manager.wait_until_open(timeout=timeout)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
