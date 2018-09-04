@@ -27,6 +27,8 @@ class DoorState(enum.Enum):
     NEUTRAL = 1
     RECENTLY_BUZZED = 2
     OPEN = 3
+    PARTY_MODE_NEUTRAL = 4
+    PARTY_MODE_OPEN = 5
 
 class DoorManager(object):
     def __init__(self):
@@ -40,16 +42,37 @@ class DoorManager(object):
         # type: (DoorState) -> None
         self.state = state
         self.last_state_change_ts = time.time()
+        logging.info("State changed to %s", self.state)
         self.state_cond.notify()
+
+    def party_mode(self, who):
+        # type: (str) -> None
+        """Enable party mode!"""
+        logging.info('Party mode enabled by %s', who)
+        send_texts('Party mode enabled by %s' % who)
+        with self.state_cond:
+            self._set_state(DoorState.PARTY_MODE_OPEN)
+
+    def regular_mode(self, who):
+        # type: (str) -> None
+        logging.info('Party mode disabled by %s', who)
+        send_texts('Party mode disabled by %s' % who)
+        with self.state_cond:
+            self._set_state(DoorState.NEUTRAL)
 
     def buzz(self):
         # type: () -> None
         """Called by raspberry pi when someone buzzes"""
-        logging.info("Someone rang the door")
-        send_texts('Someone rang the doorbell. Respond with "y" to open door')
-
         with self.state_cond:
-            self._set_state(DoorState.RECENTLY_BUZZED)
+            logging.info("Someone rang the door. State = %s", self.state)
+            if self.state in (DoorState.PARTY_MODE_NEUTRAL, DoorState.PARTY_MODE_OPEN):
+                send_texts('Someone rang the doorbell. '
+                           'Opening w/ party mode. Respond with "r" for regular mode.')
+                self._set_state(DoorState.PARTY_MODE_OPEN)
+            else:
+                send_texts('Someone rang the doorbell. '
+                           'Respond with "y" to open door. Respond with "p" for party mode.')
+                self._set_state(DoorState.RECENTLY_BUZZED)
 
     def open(self, who):
         # type: (str) -> None
@@ -67,7 +90,7 @@ class DoorManager(object):
         # type: () -> bool
         logging.info("At %s, last_state_change_ts=%s", time.time(), self.last_state_change_ts)
         return (
-            self.state == DoorState.OPEN and
+            self.state in (DoorState.OPEN, DoorState.PARTY_MODE_OPEN) and
             self.last_state_change_ts <= time.time() <= self.last_state_change_ts + 10.0
         )
 
@@ -80,12 +103,20 @@ class DoorManager(object):
                 self.state_cond.wait(timeout=poll_end - time.time())
 
             if self._should_open():
-                self._set_state(DoorState.NEUTRAL)
+                if self.state == DoorState.PARTY_MODE_OPEN:
+                    self._set_state(DoorState.PARTY_MODE_NEUTRAL)
+                else:
+                    self._set_state(DoorState.NEUTRAL)
+
                 return 'open'
 
             return 'punt'
 
 door_manager = DoorManager()
+def reset():
+    # type: () -> None
+    global door_manager
+    door_manager = DoorManager()
 
 def send_texts(text_message):
     # type: (str) -> None
@@ -111,6 +142,8 @@ def incoming_text():
         logging.info("Text was from a rogue number %s. Ignoring.", who)
     elif body in ('y', 'Y', 'yes', 'Yes'):
         door_manager.open(who)
+    elif body in ('p', 'P', 'party', 'Party'):
+        door_manager.party_mode(who)
     return str(resp)
 
 @app.route("/ring", methods=['GET'])

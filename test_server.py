@@ -17,20 +17,46 @@ def target_phones():
 @pytest.fixture
 def app(twilio_client):
     logging.basicConfig(level=logging.DEBUG)
-    from doorbell.server import app as my_app
+    from doorbell.server import (
+        app as my_app,
+        reset,
+    )
+    reset()
     return my_app
 
 def test_ring(client, twilio_client, target_phones):
     assert client.get('/ring').status_code == 200
     assert twilio_client.messages.create.call_count == len(target_phones)
-    msg = 'Someone rang the doorbell. Respond with "y" to open door'
+    msg = (
+        'Someone rang the doorbell. Respond with "y" to open door. '
+        'Respond with "p" for party mode.'
+    )
     assert twilio_client.messages.create.call_args[1]['body'] == msg
 
 def test_longpoll(client, twilio_client, target_phones):
     assert client.get('/longpoll_open?timeout=1').data == 'punt'
+    assert client.get('/ring').status_code == 200
+    assert client.get('/longpoll_open?timeout=1').data == 'punt'
+
     r = client.post('/incoming_text', data=dict(From=target_phones[1], Body='y'))
     assert r.status_code == 200
     assert client.get('/longpoll_open?timeout=1').data == 'open'
-    assert twilio_client.messages.create.call_count == len(target_phones)
+    assert twilio_client.messages.create.call_count == len(target_phones) + 2
     msg = 'Door opened by %s' % target_phones[1]
+    assert twilio_client.messages.create.call_args[1]['body'] == msg
+
+def test_party_mode(client, twilio_client, target_phones):
+    assert client.get('/longpoll_open?timeout=1').data == 'punt'
+    assert client.get('/ring').status_code == 200
+    assert client.get('/longpoll_open?timeout=1').data == 'punt'
+
+    r = client.post('/incoming_text', data=dict(From=target_phones[1], Body='p'))
+    assert r.status_code == 200
+    assert client.get('/longpoll_open?timeout=1').data == 'open'
+
+    msg = 'Party mode enabled by %s' % target_phones[1]
+    assert twilio_client.messages.create.call_args[1]['body'] == msg
+
+    assert client.get('/ring').status_code == 200
+    msg = 'Someone rang the doorbell. Opening w/ party mode. Respond with "r" for regular mode.'
     assert twilio_client.messages.create.call_args[1]['body'] == msg
