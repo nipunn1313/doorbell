@@ -48,14 +48,12 @@ class DoorManager(object):
     def party_mode(self, who):
         # type: (str) -> None
         """Enable party mode!"""
-        logging.info('Party mode enabled by %s', who)
         send_texts('Party mode enabled by %s' % who)
         with self.state_cond:
             self._set_state(DoorState.PARTY_MODE_OPEN)
 
     def regular_mode(self, who):
         # type: (str) -> None
-        logging.info('Party mode disabled by %s', who)
         send_texts('Party mode disabled by %s' % who)
         with self.state_cond:
             self._set_state(DoorState.NEUTRAL)
@@ -64,7 +62,6 @@ class DoorManager(object):
         # type: () -> None
         """Called by raspberry pi when someone buzzes"""
         with self.state_cond:
-            logging.info("Someone rang the door. State = %s", self.state)
             if self.state in (DoorState.PARTY_MODE_NEUTRAL, DoorState.PARTY_MODE_OPEN):
                 send_texts('Someone rang the doorbell. '
                            'Opening w/ party mode. Respond with "r" for regular mode.')
@@ -80,11 +77,12 @@ class DoorManager(object):
         with self.state_cond:
             if self.state == DoorState.RECENTLY_BUZZED:
                 if time.time() <= self.last_state_change_ts + 60.0:
-                    logging.info('Door opened by %s', who)
                     send_texts('Door opened by %s' % who)
                     self._set_state(DoorState.OPEN)
                 else:
                     self._set_state(DoorState.NEUTRAL)
+            else:
+                send_texts('Door open request from %s refused. Buzzer not recently buzzed' % who)
 
     def _should_open(self):
         # type: () -> bool
@@ -120,6 +118,7 @@ def reset():
 
 def send_texts(text_message):
     # type: (str) -> None
+    logging.info("Sending: %s", text_message)
     for to in TARGET_PHONES:
         message = twilio_client.messages.create(
             body=text_message,
