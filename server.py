@@ -1,3 +1,4 @@
+import enum
 import logging
 import os
 import threading
@@ -22,32 +23,72 @@ TWILIO_PHONE = os.getenv('TWILIO_PHONE')
 
 app = Flask(__name__)
 
-class DoorOpener(object):
-    def __init__(self):
-        self.open_door_ts = 0.0
-        self.open_cond = threading.Condition()
+class DoorState(enum.Enum):
+    NEUTRAL = 1
+    RECENTLY_BUZZED = 2
+    OPEN = 3
 
-    def open(self):
-        with self.open_cond:
-            self.open_door_ts = time.time()
-            logging.info("Set open_door_ts=%s", self.open_door_ts)
-            self.open_cond.notify()
+class DoorManager(object):
+    def __init__(self):
+        # type: () -> None
+        self.state_cond = threading.Condition()
+
+        self.state = DoorState.NEUTRAL
+        self.last_state_change_ts = 0.0
+
+    def _set_state(self, state):
+        # type: (DoorState) -> None
+        self.state = state
+        self.last_state_change_ts = time.time()
+        self.state_cond.notify()
+
+    def buzz(self):
+        # type: () -> None
+        """Called by raspberry pi when someone buzzes"""
+        logging.info("Someone rang the door")
+        send_texts('Someone rang the doorbell. Respond with "y" to open door')
+
+        with self.state_cond:
+            self._set_state(DoorState.RECENTLY_BUZZED)
+
+    def open(self, who):
+        # type: (str) -> None
+        """Called by twilio to open door"""
+        with self.state_cond:
+            if self.state == DoorState.RECENTLY_BUZZED:
+                if time.time() <= self.last_state_change_ts + 10.0:
+                    logging.info('Door opened by %s', who)
+                    send_texts('Door opened by %s' % who)
+                    self._set_state(DoorState.OPEN)
+                else:
+                    self._set_state(DoorState.NEUTRAL)
 
     def _should_open(self):
-        logging.info("At %s, open_door_ts=%s", time.time(), self.open_door_ts)
-        return self.open_door_ts <= time.time() <= self.open_door_ts + 10.0
+        # type: () -> bool
+        logging.info("At %s, last_state_change_ts=%s", time.time(), self.last_state_change_ts)
+        return (
+            self.state == DoorState.OPEN and
+            self.last_state_change_ts <= time.time() <= self.last_state_change_ts + 10.0
+        )
 
-    def wait_until_open(self, timeout):
+    def longpoll_open(self, timeout):
+        # type: (float) -> str
+        """Called by the raspberry pi to figure out when to open the door"""
         poll_end = time.time() + timeout
-        with self.open_cond:
+        with self.state_cond:
             while not self._should_open() and time.time() <= poll_end:
-                self.open_cond.wait(timeout=poll_end - time.time())
+                self.state_cond.wait(timeout=poll_end - time.time())
 
-            return 'open' if self._should_open() else 'punt'
+            if self._should_open():
+                self._set_state(DoorState.NEUTRAL)
+                return 'open'
 
-door_opener = DoorOpener()
+            return 'punt'
+
+door_manager = DoorManager()
 
 def send_texts(text_message):
+    # type: (str) -> None
     for to in TARGET_PHONES:
         message = twilio_client.messages.create(
             body=text_message,
@@ -58,6 +99,7 @@ def send_texts(text_message):
 
 @app.route("/incoming_text", methods=['GET', 'POST'])
 def incoming_text():
+    # type: () -> str
     """Handle incoming texts"""
     who = request.values.get('From')
     body = request.values.get('Body', '')
@@ -68,25 +110,24 @@ def incoming_text():
     if who not in TARGET_PHONES:
         logging.info("Text was from a rogue number %s. Ignoring.", who)
     elif body in ('y', 'Y', 'yes', 'Yes'):
-        logging.info('Door opened by %s', who)
-        send_texts('Door opened by %s' % who)
-        door_opener.open()
+        door_manager.open(who)
     return str(resp)
 
 @app.route("/ring", methods=['GET'])
 def ring():
-    logging.info("Someone rang the door")
-    send_texts('Someone rang the doorbell. Respond with "y" to open door')
+    # type: () -> str
+    door_manager.buzz()
     return 'ok'
 
 @app.route("/longpoll_open", methods=['GET'])
 def longpoll_open():
+    # type: () -> str
     timeout = float(request.args.get('timeout', 60.0))
-    return door_opener.wait_until_open(timeout=timeout)
+    return door_manager.longpoll_open(timeout=timeout)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    port = int(os.getenv('PORT'))
+    port = int(os.getenv('PORT', 8080))
     ip = os.getenv('IP', '0.0.0.0')
     logging.info("Starting doorbell server on %s:%s", ip, port)
     app.run(debug=False, host=ip, port=port, threaded=True)
