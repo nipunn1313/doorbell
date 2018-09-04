@@ -10,6 +10,7 @@ from flask import (
     Flask,
     request,
 )
+from raven.contrib.flask import Sentry
 from twilio.rest import TwilioRestClient
 
 twilio_client = TwilioRestClient(
@@ -162,4 +163,5 @@ if __name__ == "__main__":
     port = int(os.getenv('PORT', 8080))
     ip = os.getenv('IP', '0.0.0.0')
     logging.info("Starting doorbell server on %s:%s", ip, port)
+    sentry = Sentry(app)
     app.run(debug=False, host=ip, port=port, threaded=True)
