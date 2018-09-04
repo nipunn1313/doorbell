@@ -23,6 +23,7 @@ TARGET_PHONES = os.getenv('TARGET_PHONES', '').split(',')
 TWILIO_PHONE = os.getenv('TWILIO_PHONE')
 
 app = Flask(__name__)
+sentry = Sentry(app, level=logging.INFO)
 
 class DoorState(enum.Enum):
     NEUTRAL = 1
@@ -163,5 +164,4 @@ if __name__ == "__main__":
     port = int(os.getenv('PORT', 8080))
     ip = os.getenv('IP', '0.0.0.0')
     logging.info("Starting doorbell server on %s:%s", ip, port)
-    sentry = Sentry(app)
     app.run(debug=False, host=ip, port=port, threaded=True)
