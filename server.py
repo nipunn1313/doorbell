@@ -79,7 +79,7 @@ class DoorManager(object):
         """Called by twilio to open door"""
         with self.state_cond:
             if self.state == DoorState.RECENTLY_BUZZED:
-                if time.time() <= self.last_state_change_ts + 10.0:
+                if time.time() <= self.last_state_change_ts + 60.0:
                     logging.info('Door opened by %s', who)
                     send_texts('Door opened by %s' % who)
                     self._set_state(DoorState.OPEN)
