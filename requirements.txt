@@ -1,5 +1,5 @@
 enum34
-flask==0.12.2
+flask==1.0
 requests==2.20.0
 twilio==5.4.0
 raven[flask]==6.9.0
